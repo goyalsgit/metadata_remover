@@ -41,7 +41,7 @@ class MetadataRemoverApp:
         self.log_box.see(tk.END)
 
     def browse_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image/PDF files", "*.jpg *.png *.jpeg *.tiff *.pdf")])
+        file_path = filedialog.askopenfilename(filetypes=[("Media files", "*.jpg *.png *.jpeg *.tiff *.pdf *.mp4 *.mov *.avi *.mkv")])
         if file_path:
             self.selected_file_path = file_path
             self.file_label.config(text=f"Selected: {os.path.basename(file_path)}")
