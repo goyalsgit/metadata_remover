@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata Remover - Protect Your Privacy</title>
+    <meta name="description" content="Securely remove hidden EXIF metadata from your images directly in your browser.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Phosphorus Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+    <div class="background-effects">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+    </div>
+
+    <main class="app-container">
+        <header class="app-header">
+            <div class="logo-container">
+                <i class="ph ph-shield-check shield-icon"></i>
+                <h1>Metadata <span>Remover</span></h1>
+            </div>
+            <p>Strip hidden EXIF data from your images and PDFs to protect your privacy.</p>
+        </header>
+
+        <section class="upload-section">
+            <div class="drop-zone" id="drop-zone">
+                <i class="ph ph-upload-simple upload-icon"></i>
+                <h2>Drag & Drop your Image or PDF here</h2>
+                <p>or</p>
+                <button class="btn btn-primary" id="browse-btn">Browse Files</button>
+                <input type="file" id="file-input" accept="image/jpeg, image/png, image/gif, image/tiff, application/pdf, .pdf" hidden>
+            </div>
+            
+            <div class="file-preview" id="file-preview" style="display: none;">
+                <div class="preview-header">
+                    <i class="ph ph-image"></i>
+                    <span id="file-name" class="file-name">filename.jpg</span>
+                    <button class="btn-icon" id="reset-btn" title="Remove image">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-secondary" id="view-meta-btn">
+                        <i class="ph ph-magnifying-glass"></i> View Metadata
+                    </button>
+                    <button class="btn btn-accent" id="remove-meta-btn">
+                        <i class="ph ph-trash"></i> Remove & Download
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="results-section" id="results-section" style="display: none;">
+            <div class="results-header">
+                <h3><i class="ph ph-list-magnifying-glass"></i> Extracted Metadata</h3>
+                <span class="badge" id="meta-count">0 tags</span>
+            </div>
+            <div class="table-container">
+                <table class="metadata-table">
+                    <thead>
+                        <tr>
+                            <th>Tag Name</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="metadata-body">
+                        <!-- Dynamically filled via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loading-text">Processing...</p>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div class="toast" id="toast">
+            <span id="toast-message">Message</span>
+        </div>
+    </main>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

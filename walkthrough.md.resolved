@@ -1,0 +1,67 @@
+# Metadata Remover Project Setup and Working Guide
+
+This document captures a complete explanation of the Metadata (EXIF) Remover application, along with a step-by-step guide on how we set this up and ran it on your laptop.
+
+## 1. How the Application Works
+
+This tool is designed to read and remove hidden metadata (EXIF data) from images. This helps protect privacy before sharing photos online. The project is split into two main python scripts:
+
+### [metadata_remover.py](file:///Users/devanshgoyal/Downloads/meta_data_remover/metadata_remover.py)
+This is the **core logic engine** of the project. It uses the `Pillow` (PIL) library to parse images. 
+- `read_metadata(filepath)`: Opens the image, extracts the EXIF data format into a readable dictionary, and returns the tags (like camera model, date taken, GPS location, etc.). 
+- [remove_metadata(input_path, output_path)](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py#312-363): Opens the chosen image and saves a fresh copy to the output path without the EXIF metadata attached, successfully stripping any private information.
+
+### [gui_app_1.py](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py)
+This is the **Graphical User Interface (GUI)** built on top of the logic engine. It uses `tkinter`, which is Python's standard GUI library.
+- It imports `read_metadata` and [remove_metadata](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py#312-363) from the core script.
+- It defines a class [MetadataRemoverApp](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py#33-383), which constructs all the visual components (buttons, text log area, file selection dialogs).
+- It handles user interactions, such as opening a file dialog ([browse_file()](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py#257-277)), reading metadata upon button click ([view_metadata()](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py#279-310)), and saving a cleaned image ([do_remove_metadata()](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py#312-363)).
+
+---
+
+## 2. How We Set It Up on Your Laptop
+
+When we first tried to run the GUI application using your Homebrew-installed Python on macOS, we encountered the following error:
+```python
+ModuleNotFoundError: No module named '_tkinter'
+```
+**Why this happened:** Apple's macOS does not natively bundle the `tkinter` graphics module with Homebrew's Python installations by default.
+
+**The Fix:** We needed to install the `python-tk` package specific to your Python 3.14 environment. We ran the following command in your terminal:
+```bash
+brew install python-tk@3.14
+```
+Once Homebrew downloaded and linked the necessary Tcl/Tk system dependencies to your Python installation, the environment was ready to display the GUI.
+
+---
+
+## 3. How to Run the Application
+
+You can now start the application whenever you want directly from your terminal. 
+
+1. Open your terminal app (or use the VSCode terminal).
+2. Make sure you are in the project folder:
+   ```bash
+   cd /Users/devanshgoyal/Downloads/meta_data_remover
+   ```
+3. Run the Python GUI script:
+   ```bash
+   python3 gui_app_1.py
+   ```
+4. **Using the app:** Once the window opens, click "📁 Browse" to select an image, tap "🔍 VIEW METADATA" to read its hidden data, and finally hit "🗑️ REMOVE METADATA" to save a clean, privacy-friendly copy of the photo.
+
+---
+
+## 4. Regarding the Video Demonstration
+
+You asked for a video demonstration of us setting it up and running it. 
+
+**Note on Video Recording Limitations:** 
+As an AI Assistant, my built-in screen recording tools are strictly limited to recording *web browser sessions* (like navigating websites). Because [gui_app_1.py](file:///Users/devanshgoyal/Downloads/meta_data_remover/gui_app_1.py) is a **desktop application** (a standalone window on your Mac), I cannot internally capture a video of it. 
+
+However, you can easily record a video of the app running on your own Mac!
+1. Press `Cmd + Shift + 5` on your keyboard to open the macOS Screen Capture tool.
+2. Select **Record Selected Portion** or **Record Entire Screen**.
+3. Click "Record".
+4. Run `python3 gui_app_1.py`, demonstrate using the app (opening a photo, stripping the data), and then click the Stop button in your menu bar. 
+5. You now have a recorded video of your desktop application!
