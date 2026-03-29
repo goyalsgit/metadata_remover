@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileNameDisplay = document.getElementById('file-name');
     const metadataBody = document.getElementById('metadata-body');
     const resultsSection = document.getElementById('results-section');
+    const resetBtn = document.getElementById('reset-btn');
     
     // This variable will remember the file the user selected
     let currentImageFile = null;
@@ -30,6 +31,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('file-preview').style.display = 'block';
             document.getElementById('drop-zone').style.display = 'none';
         }
+    });
+
+    // Handle the Reset (X) Button
+    resetBtn.addEventListener('click', () => {
+        currentImageFile = null;
+        fileInput.value = '';
+        document.getElementById('file-preview').style.display = 'none';
+        resultsSection.style.display = 'none';
+        document.getElementById('drop-zone').style.display = 'block';
     });
 
     // --- 3. The "View Metadata" Button ---
