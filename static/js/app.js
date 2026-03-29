@@ -98,9 +98,28 @@ document.addEventListener('DOMContentLoaded', () => {
             downloadLink.remove();
             window.URL.revokeObjectURL(downloadLink.href);
             
-            alert("Success! Cleaned image has been downloaded.");
+            showToast("Success! Cleaned image has been downloaded.", "success");
         } else {
-            alert("Error removing metadata.");
+            showToast("Error removing metadata.", "error");
         }
     });
+
+    // --- Helper for Toast Notifications ---
+    function showToast(message, type) {
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-message');
+        
+        // Remove old classes
+        toast.className = 'toast';
+        
+        // Add new text and class
+        toastMsg.textContent = message;
+        toast.classList.add(type);
+        toast.classList.add('show');
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
 });

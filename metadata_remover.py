@@ -75,9 +75,9 @@ def remove_metadata(input_source, output_destination, filename=""):
     # ====== IMAGE LOGIC ======
     try:
         image = Image.open(input_source)
-        pixels = list(image.getdata())
         clean_image = Image.new(image.mode, image.size)
-        clean_image.putdata(pixels)
+        # Pass the getdata() iterator directly to putdata efficiently, avoiding out of memory crashes
+        clean_image.putdata(image.getdata())
         
         # Save it to the destination (hard drive or memory stream)
         clean_image.save(output_destination, format=image.format or 'JPEG')
