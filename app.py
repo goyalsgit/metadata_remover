@@ -2,65 +2,53 @@ import io
 from flask import Flask, request, jsonify, render_template, send_file
 from metadata_remover import read_metadata, remove_metadata
 
-# 1. Start our Web Server
 app = Flask(__name__)
 
-# 2. Serve the website visually when someone visits the homepage
+# 1. Homepage Route
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# 3. Handle the "View Metadata" button
+# 2. View Metadata Route
 @app.route('/api/metadata', methods=['POST'])
-def api_metadata():
-    # Grab the uploaded file from the user
-    uploaded_file = request.files['file']
+def view_metadata():
+    # Get the uploaded file
+    file = request.files['file']
     
-    # Read the data, passing the filename so it knows if it's a PDF
-    try:
-        metadata = read_metadata(uploaded_file, uploaded_file.filename)
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
-
-    # Ensure everything is neatly formatted as text before sending back
+    # Read the metadata
+    metadata = read_metadata(file, file.filename)
+    
     if metadata:
-        safe_meta = {str(k): str(v) for k, v in metadata.items()}
-        return jsonify({'metadata': safe_meta, 'count': len(metadata)})
+        # Convert all values to strings for JSON
+        clean_metadata = {str(k): str(v) for k, v in metadata.items()}
+        return jsonify({'metadata': clean_metadata, 'count': len(clean_metadata)})
     else:
-        return jsonify({'metadata': {}, 'count': 0, 'message': 'No metadata found'})
+        return jsonify({'metadata': {}, 'count': 0})
 
-# 4. Handle the "Remove & Download" button
+# 3. Remove Metadata Route
 @app.route('/api/remove', methods=['POST'])
-def api_remove():
-    uploaded_file = request.files['file']
-    filename = uploaded_file.filename
+def remove_data():
+    # Get the uploaded file
+    file = request.files['file']
     
-    # Invisible memory buffer (no temporary hard drive files needed!)
-    memory_canvas = io.BytesIO()
+    # Create an empty memory space to hold the cleaned file
+    memory_file = io.BytesIO()
     
-    try:
-        # Erase data and save the clean file into our memory canvas
-        remove_metadata(uploaded_file, memory_canvas, filename)
+    # Remove metadata and save strictly to memory_file
+    success = remove_metadata(file, memory_file, file.filename)
+    
+    if not success:
+        return jsonify({'error': 'Failed to remove metadata'}), 500
         
-        # Rewind the canvas back to the beginning so the user can download it
-        memory_canvas.seek(0)
-        
-        # Determine the correct file type so the browser knows how to download it
-        if filename.lower().endswith('.pdf'):
-            download_mimetype = 'application/pdf'
-        else:
-            download_mimetype = uploaded_file.mimetype
-        
-        # Send the clean file directly from memory to the user's browser!
-        return send_file(
-            memory_canvas, 
-            as_attachment=True, 
-            download_name=f"clean_{filename}",
-            mimetype=download_mimetype
-        )
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
+    # Go back to the start of the memory file before sending
+    memory_file.seek(0)
+    
+    # Send the clean file back to the browser for download
+    return send_file(
+        memory_file, 
+        as_attachment=True, 
+        download_name=f"clean_{file.filename}"
+    )
 
-# 5. Turn the server on!
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

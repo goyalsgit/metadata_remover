@@ -1,71 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metadata Remover - Protect Your Privacy</title>
-    <meta name="description" content="Securely remove hidden EXIF metadata from your images directly in your browser.">
-    
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metadata Remover — Protect Your Privacy</title>
+
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
-    <!-- Phosphorus Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Phosphor Icons (free icon library) -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <!-- Our CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
+
 <body>
+
+    <!-- ── Background decorative orbs (CSS animated) ── -->
     <div class="background-effects">
         <div class="glow-orb orb-1"></div>
         <div class="glow-orb orb-2"></div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════ -->
+    <!--  MAIN APP CONTAINER                                    -->
+    <!-- ══════════════════════════════════════════════════════ -->
     <main class="app-container">
+
+        <!-- ── HEADER ── -->
         <header class="app-header">
             <div class="logo-container">
                 <i class="ph ph-shield-check shield-icon"></i>
                 <h1>Metadata <span>Remover</span></h1>
             </div>
-            <p>Strip hidden EXIF data from your images and PDFs to protect your privacy.</p>
+            <p>Remove hidden EXIF data from images, PDFs, and videos to protect your privacy.</p>
         </header>
 
+        <!-- ── UPLOAD SECTION ── -->
         <section class="upload-section">
+
+            <!-- Drag & Drop Zone — shown by default -->
             <div class="drop-zone" id="drop-zone">
                 <i class="ph ph-upload-simple upload-icon"></i>
-                <h2>Drag & Drop your Media, Video or PDF here</h2>
-                <p>or</p>
-                <button class="btn btn-primary" id="browse-btn">Browse Files</button>
-                <input type="file" id="file-input" accept="image/*, video/mp4, video/quicktime, video/x-msvideo, application/pdf, .pdf, .mp4, .mov, .avi" hidden>
+                <h2>Drag & Drop your file here</h2>
+                <p>Supports Images (JPG, PNG, TIFF), PDFs, and Videos (MP4, MOV)</p>
+                <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.85rem;">or</p>
+
+                <!-- Pretty Browse button (hides the ugly default file input) -->
+                <button class="btn btn-primary" id="browse-btn">
+                    <i class="ph ph-folder-open"></i> Browse Files
+                </button>
+
+                <!-- Hidden real file input — triggered by the button above -->
+                <input type="file" id="file-input" accept="image/jpeg, image/png, image/gif, image/tiff, image/bmp, image/webp,
+                  application/pdf,
+                  video/mp4, video/quicktime, video/x-msvideo, video/x-matroska, video/webm,
+                  .jpg, .jpeg, .png, .tiff, .tif, .bmp, .gif, .webp,
+                  .pdf, .mp4, .mov, .avi, .mkv, .webm" hidden />
             </div>
-            
+
+            <!-- File Preview Panel — hidden until a file is selected -->
             <div class="file-preview" id="file-preview" style="display: none;">
                 <div class="preview-header">
-                    <i class="ph ph-image"></i>
+                    <i class="ph ph-file"></i>
+                    <!-- File name shown here by JavaScript -->
                     <span id="file-name" class="file-name">filename.jpg</span>
-                    <button class="btn-icon" id="reset-btn" title="Remove image">
+                    <!-- X button to reset and go back to upload screen -->
+                    <button class="btn-icon" id="reset-btn" title="Remove file">
                         <i class="ph ph-x"></i>
                     </button>
                 </div>
-                
+
+                <!-- The two action buttons -->
                 <div class="action-buttons">
                     <button class="btn btn-secondary" id="view-meta-btn">
                         <i class="ph ph-magnifying-glass"></i> View Metadata
                     </button>
                     <button class="btn btn-accent" id="remove-meta-btn">
-                        <i class="ph ph-trash"></i> Remove & Download
+                        <i class="ph ph-trash"></i> Remove &amp; Download
                     </button>
                 </div>
             </div>
+
         </section>
 
+        <!-- ── RESULTS TABLE ── hidden until metadata is loaded -->
         <section class="results-section" id="results-section" style="display: none;">
             <div class="results-header">
-                <h3><i class="ph ph-list-magnifying-glass"></i> Extracted Metadata</h3>
+                <h3><i class="ph ph-list-magnifying-glass"></i> Hidden Metadata Found</h3>
+                <!-- Tag count badge updated by JavaScript -->
                 <span class="badge" id="meta-count">0 tags</span>
             </div>
+
             <div class="table-container">
                 <table class="metadata-table">
                     <thead>
@@ -74,26 +106,27 @@
                             <th>Value</th>
                         </tr>
                     </thead>
-                    <tbody id="metadata-body">
-                        <!-- Dynamically filled via JS -->
-                    </tbody>
+                    <!-- Rows are created here dynamically by app.js -->
+                    <tbody id="metadata-body"></tbody>
                 </table>
             </div>
         </section>
 
-        <!-- Loading Overlay -->
+        <!-- ── LOADING OVERLAY ── shown while waiting for server response -->
         <div class="loading-overlay" id="loading-overlay" style="display: none;">
             <div class="spinner"></div>
             <p id="loading-text">Processing...</p>
         </div>
-        
-        <!-- Toast Notification -->
+
+        <!-- ── TOAST NOTIFICATION ── popup at bottom for success/error messages -->
         <div class="toast" id="toast">
-            <span id="toast-message">Message</span>
+            <span id="toast-message">Message here</span>
         </div>
+
     </main>
 
-    <!-- Custom JS -->
+    <!-- Our JavaScript (loaded at the end so HTML is ready first) -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+
 </html>

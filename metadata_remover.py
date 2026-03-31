@@ -1,207 +1,142 @@
-import os
-import io
-import tempfile
-import shutil
+import os, io, tempfile, shutil
 from PIL import Image, ExifTags
 from pypdf import PdfReader, PdfWriter
-import ffmpeg
-import imageio_ffmpeg
+import ffmpeg, imageio_ffmpeg
 
-def _is_pdf(filename, source):
-    """Helper method to determine if the input is a PDF file."""
-    if filename and str(filename).lower().endswith('.pdf'):
-        return True
-    if isinstance(source, str) and source.lower().endswith('.pdf'):
-        return True
-    if hasattr(source, 'filename') and source.filename.lower().endswith('.pdf'):
-        return True
-    if hasattr(source, 'name') and source.name.lower().endswith('.pdf'):
-        return True
-    return False
+def _get_extension(filename, file_obj):
+    """Helper to find what type of file we are dealing with."""
+    if filename:
+        return os.path.splitext(filename)[1].lower()
+    if hasattr(file_obj, 'filename'):
+        return os.path.splitext(file_obj.filename)[1].lower()
+    return ''
 
-def _is_video(filename, source):
-    """Helper method to determine if the input is a Video file."""
-    video_exts = ('.mp4', '.mov', '.avi', '.mkv', '.webm')
-    if filename and str(filename).lower().endswith(video_exts):
-        return True
-    if isinstance(source, str) and source.lower().endswith(video_exts):
-        return True
-    if hasattr(source, 'filename') and source.filename.lower().endswith(video_exts):
-        return True
-    if hasattr(source, 'name') and source.name.lower().endswith(video_exts):
-        return True
-    return False
+def _save_to_temp_disk(file_obj):
+    """Saves a file from memory to the hard drive temporarily (needed for videos)."""
+    fd, temp_path = tempfile.mkstemp()
+    os.close(fd)
+    if hasattr(file_obj, 'seek'): 
+        file_obj.seek(0)
+    with open(temp_path, 'wb') as f:
+        f.write(file_obj.read())
+    if hasattr(file_obj, 'seek'): 
+        file_obj.seek(0)
+    return temp_path
 
-def read_metadata(input_source, filename=""):
-    """
-    Reads metadata from a Video, PDF, or Image.
-    """
-    # ====== PDF LOGIC ======
-    if _is_pdf(filename, input_source):
+def read_metadata(file_obj, filename=""):
+    """Reads visible hidden data from a file."""
+    ext = _get_extension(filename, file_obj)
+
+    # 1. Handle PDF Files
+    if ext == '.pdf':
         try:
-            reader = PdfReader(input_source)
+            reader = PdfReader(file_obj)
             meta = reader.metadata
             if not meta: return None
+            # Convert all metadata labels and values to strings
             return {str(k).strip('/'): str(v) for k, v in meta.items()}
-        except Exception as e:
-            print(f"Error reading PDF: {e}")
+        except Exception:
             return None
 
-    # ====== VIDEO LOGIC ======
-    if _is_video(filename, input_source):
-        temp_path = None
+    # 2. Handle Video Files 
+    if ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
+        temp_path = _save_to_temp_disk(file_obj)
         try:
-            # We need a physical file to probe video with ffmpeg
-            temp_path = _save_to_temp_file(input_source)
+            # Use ffmpeg to probe the video for tags
             probe = ffmpeg.probe(temp_path, cmd=imageio_ffmpeg.get_ffmpeg_exe())
-            
-            readable_data = {}
-            if 'format' in probe and 'tags' in probe['format']:
-                tags = probe['format']['tags']
-                for k, v in tags.items():
-                    readable_data[f"Video Base: {k}"] = v
-                    
-            for stream in probe.get('streams', []):
-                s_type = stream.get('codec_type', 'unknown').capitalize()
-                for k, v in stream.get('tags', {}).items():
-                    readable_data[f"{s_type} Track: {k}"] = v
-                    
-            return readable_data if readable_data else None
-            
-        except Exception as e:
-            print(f"Error reading Video metadata: {e}")
+            data = probe.get('format', {}).get('tags', {})
+            return data if data else None
+        except Exception:
             return None
         finally:
-            if temp_path and os.path.exists(temp_path):
-                os.remove(temp_path)
+            if os.path.exists(temp_path): os.remove(temp_path)
 
-    # ====== IMAGE LOGIC ======
+    # 3. Handle Image Files 
     try:
-        image = Image.open(input_source)
+        image = Image.open(file_obj)
         readable_data = {}
         
-        # 1. Standard EXIF
+        # Get standard EXIF tags (like camera model, date taken)
         exif = image.getexif()
         if exif:
             for tag_id, value in exif.items():
                 tag_name = ExifTags.TAGS.get(tag_id, tag_id)
-                if isinstance(value, bytes):
-                    try:
-                        value = value.decode('utf-8')
-                    except Exception:
-                        value = "<Binary Data>"
-                readable_data[tag_name] = value
+                readable_data[tag_name] = str(value)
                 
-            # GPS Sub-dictionary
-            gps_info = exif.get_ifd(ExifTags.IFD.GPSInfo) if hasattr(exif, 'get_ifd') else {}
-            for key, val in gps_info.items():
-                tag_name = ExifTags.GPSTAGS.get(key, key)
-                readable_data[f"GPS {tag_name}"] = val
-                
-        # 2. Extract embedded text tags (usually in PNGs)
-        if hasattr(image, "text") and image.text:
-            for k, v in image.text.items():
-                readable_data[f"PNG Text: {k}"] = v
-                
-        # 3. Extract info tags (common for JPEGs and other headers)
-        for k, v in image.info.items():
-            if k in ['Title', 'Author', 'Description', 'Comment', 'XML:com.adobe.xmp', 'Software', 'dpi']:
-                if isinstance(v, bytes):
-                    continue
-                # If XML is huge, truncate it just to show it exists but limit length
-                if isinstance(v, str) and len(v) > 200:
-                    v = v[:200] + " ... <truncated>"
-                readable_data[f"Info: {k}"] = v
-                
+            if hasattr(exif, 'get_ifd'):
+                # Get advanced EXIF tags (like ISO, Shutter Speed)
+                exif_info = exif.get_ifd(ExifTags.IFD.Exif)
+                for tag_id, value in exif_info.items():
+                    tag_name = ExifTags.TAGS.get(tag_id, tag_id)
+                    readable_data[tag_name] = str(value)
+                    
+                # Get GPS tags
+                gps_info = exif.get_ifd(ExifTags.IFD.GPSInfo)
+                for tag_id, value in gps_info.items():
+                    tag_name = ExifTags.GPSTAGS.get(tag_id, tag_id)
+                    readable_data[f"GPS {tag_name}"] = str(value)
+                    
         return readable_data if readable_data else None
-                
-    except Exception as e:
-        print(f"Error reading Image metadata: {e}")
+    except Exception:
         return None
 
-def _save_to_temp_file(source):
-    """Takes a stream or path and creates a temporary disk file for ffmpeg."""
-    fd, temp_path = tempfile.mkstemp(suffix=".tmp")
-    os.close(fd)
-    
-    if isinstance(source, str):
-        shutil.copy2(source, temp_path)
-    else:
-        # Seek to start if it's a file stream
-        if hasattr(source, 'seek'):
-            source.seek(0)
-        with open(temp_path, 'wb') as f:
-            f.write(source.read())
-        if hasattr(source, 'seek'):
-            source.seek(0)
-    return temp_path
+def remove_metadata(file_obj, output_obj, filename=""):
+    """Deletes metadata and saves a clean version to output_obj."""
+    ext = _get_extension(filename, file_obj)
 
-def remove_metadata(input_source, output_destination, filename=""):
-    """
-    Removes metadata from a Video, PDF, or Image.
-    """
-    # ====== PDF LOGIC ======
-    if _is_pdf(filename, input_source):
+    # 1. Handle PDF Files
+    if ext == '.pdf':
         try:
-            reader = PdfReader(input_source)
+            reader = PdfReader(file_obj)
             writer = PdfWriter()
+            
+            # Copy all pages over 
             for page in reader.pages:
                 writer.add_page(page)
-            writer.add_metadata({})
-            writer.write(output_destination)
+                
+            # Add an empty dictionary instead of metadata
+            writer.add_metadata({}) 
+            writer.write(output_obj)
             return True
-        except Exception as e:
-            print(f"Error removing PDF metadata: {e}")
+        except Exception:
             return False
 
-    # ====== VIDEO LOGIC ======
-    if _is_video(filename, input_source):
-        in_temp = None
-        out_temp = None
+    # 2. Handle Video Files
+    if ext in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
+        in_temp = _save_to_temp_disk(file_obj)
+        out_temp = in_temp + "_clean" + ext
+        
         try:
-            in_temp = _save_to_temp_file(input_source)
-            # Find exact extension if possible to preserve video container
-            ext = os.path.splitext(filename if filename else str(input_source))[1].lower()
-            if not ext or ext not in ['.mp4', '.mov', '.avi', '.mkv', '.webm']:
-                ext = '.mp4'
-                
-            fd, out_temp = tempfile.mkstemp(suffix=ext)
-            os.close(fd)
-            
-            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-            
-            # Use ffmpeg to clear metadata mapping
+            # Tell ffmpeg to copy video/audio (-c copy) and drop tags (-map_metadata -1)
             (
                 ffmpeg
                 .input(in_temp)
                 .output(out_temp, vcodec='copy', acodec='copy', map_metadata='-1')
-                .run(cmd=ffmpeg_exe, overwrite_output=True, quiet=True)
+                .run(cmd=imageio_ffmpeg.get_ffmpeg_exe(), overwrite_output=True, quiet=True)
             )
             
-            # Write out to output_destination
-            if isinstance(output_destination, str):
-                shutil.copy2(out_temp, output_destination)
-            else:
-                with open(out_temp, 'rb') as f:
-                    output_destination.write(f.read())
-                    
+            # Save the clean video back to our output destination
+            with open(out_temp, 'rb') as f:
+                output_obj.write(f.read())
             return True
-        except Exception as e:
-            print(f"Error removing Video metadata: {e}")
+        except Exception:
             return False
         finally:
-            if in_temp and os.path.exists(in_temp):
-                os.remove(in_temp)
-            if out_temp and os.path.exists(out_temp):
-                os.remove(out_temp)
+            if os.path.exists(in_temp): os.remove(in_temp)
+            if os.path.exists(out_temp): os.remove(out_temp)
 
-    # ====== IMAGE LOGIC ======
+    # 3. Handle Image Files
     try:
-        image = Image.open(input_source)
+        image = Image.open(file_obj)
+        
+        # Create a brand new blank image with same size
         clean_image = Image.new(image.mode, image.size)
-        clean_image.putdata(image.getdata())
-        clean_image.save(output_destination, format=image.format or 'JPEG')
+        
+        # Copy ONLY the visual pixels (leaves metadata behind)
+        clean_image.putdata(image.getdata()) 
+        
+        # Save it
+        clean_image.save(output_obj, format=image.format or 'JPEG')
         return True
-    except Exception as e:
-        print(f"Error removing Image metadata: {e}")
+    except Exception:
         return False

@@ -1,135 +1,100 @@
-// Wait for the webpage to fully load before running our code
+// Run code only after the page has fully loaded
 document.addEventListener('DOMContentLoaded', () => {
     
-    // --- 1. Find all our HTML elements ---
+    // 1. Find all important HTML elements
     const fileInput = document.getElementById('file-input');
     const browseBtn = document.getElementById('browse-btn');
-    const viewMetaBtn = document.getElementById('view-meta-btn');
-    const removeMetaBtn = document.getElementById('remove-meta-btn');
-    const fileNameDisplay = document.getElementById('file-name');
-    const metadataBody = document.getElementById('metadata-body');
-    const resultsSection = document.getElementById('results-section');
     const resetBtn = document.getElementById('reset-btn');
+    const viewBtn = document.getElementById('view-meta-btn');
+    const removeBtn = document.getElementById('remove-meta-btn');
     
-    // This variable will remember the file the user selected
-    let currentImageFile = null;
+    let currentFile = null;
 
-    // --- 2. Handle File Selection ---
-    // Make our pretty button click the ugly hidden file input
-    browseBtn.addEventListener('click', () => {
-        fileInput.click();
-    });
-
-    // When the user picks a file, save it and show the filename
-    fileInput.addEventListener('change', (event) => {
-        const files = event.target.files;
-        if (files.length > 0) {
-            currentImageFile = files[0];
-            fileNameDisplay.textContent = currentImageFile.name;
+    // 2. Handle File Selection
+    // Clicking our 'Browse' button actually clicks the hidden file input
+    browseBtn.onclick = () => fileInput.click();
+    
+    fileInput.onchange = (event) => {
+        if (event.target.files.length > 0) {
+            currentFile = event.target.files[0];
             
-            // Show the preview area (assuming CSS class handling or direct style)
+            // Show the file name and switch interface views
+            document.getElementById('file-name').textContent = currentFile.name;
             document.getElementById('file-preview').style.display = 'block';
             document.getElementById('drop-zone').style.display = 'none';
         }
-    });
+    };
 
-    // Handle the Reset (X) Button
-    resetBtn.addEventListener('click', () => {
-        currentImageFile = null;
-        fileInput.value = '';
+    // 3. Handle Reset (X button)
+    resetBtn.onclick = () => {
+        currentFile = null;
+        fileInput.value = ''; // Clear file input
+        
+        // Hide preview and results, show upload zone again
         document.getElementById('file-preview').style.display = 'none';
-        resultsSection.style.display = 'none';
+        document.getElementById('results-section').style.display = 'none';
         document.getElementById('drop-zone').style.display = 'block';
-    });
+    };
 
-    // --- 3. The "View Metadata" Button ---
-    viewMetaBtn.addEventListener('click', async () => {
-        if (!currentImageFile) return;
+    // 4. Handle "View Metadata"
+    viewBtn.onclick = async () => {
+        if (!currentFile) return;
 
-        // Package the image into a digital envelope
-        const envelope = new FormData();
-        envelope.append('file', currentImageFile);
+        // Prepare file to send
+        const formData = new FormData();
+        formData.append('file', currentFile);
 
-        // Send it to the Python server!
-        const serverReply = await fetch('/api/metadata', {
-            method: 'POST',
-            body: envelope
-        });
+        // Send file to Python server
+        const response = await fetch('/api/metadata', { method: 'POST', body: formData });
+        const data = await response.json();
         
-        // Read the server's JSON answer
-        const responseData = await serverReply.json();
-        
-        // Show the results section
-        resultsSection.style.display = 'block';
-        metadataBody.innerHTML = ''; // Clear old results
+        // Show results table
+        document.getElementById('results-section').style.display = 'block';
+        const tbody = document.getElementById('metadata-body');
+        tbody.innerHTML = ''; // Clear previous
 
-        // If no data was found, tell the user
-        if (responseData.count === 0) {
-            metadataBody.innerHTML = `<tr><td colspan="2">No hidden data found!</td></tr>`;
+        // If no metadata found
+        if (data.count === 0) {
+            tbody.innerHTML = `<tr><td colspan="2">No hidden data found!</td></tr>`;
             return;
         }
 
-        // Loop through the data and create a table row for each item
-        for (const [key, value] of Object.entries(responseData.metadata)) {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td><strong>${key}</strong></td><td>${value}</td>`;
-            metadataBody.appendChild(row);
+        // Add a table row for each metadata item
+        for (const [key, value] of Object.entries(data.metadata)) {
+            tbody.innerHTML += `<tr><td><strong>${key}</strong></td><td>${value}</td></tr>`;
         }
-    });
+    };
 
-    // --- 4. The "Remove & Download" Button ---
-    removeMetaBtn.addEventListener('click', async () => {
-        if (!currentImageFile) return;
+    // 5. Handle "Remove & Download"
+    removeBtn.onclick = async () => {
+        if (!currentFile) return;
 
-        // Package the dirty image
-        const envelope = new FormData();
-        envelope.append('file', currentImageFile);
+        // Prepare file to send
+        const formData = new FormData();
+        formData.append('file', currentFile);
 
-        // Send it to the Python server's remove route
-        const serverReply = await fetch('/api/remove', {
-            method: 'POST',
-            body: envelope
-        });
+        // Send file to Python server's remove route
+        const response = await fetch('/api/remove', { method: 'POST', body: formData });
         
-        if (serverReply.ok) {
-            // The server successfully replied with the Clean File data (a Blob)
-            const cleanImageBlob = await serverReply.blob();
+        if (response.ok) {
+            // Get the cleaned file back from server
+            const blob = await response.blob();
             
-            // Create a temporary link to the clean file in memory
-            const downloadLink = document.createElement('a');
-            downloadLink.href = window.URL.createObjectURL(cleanImageBlob);
-            downloadLink.download = "clean_" + currentImageFile.name; // Name the downloaded file
+            // Create a temporary link to download the file
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = "clean_" + currentFile.name;
             
-            // Click the link to force the browser to download it
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
+            // Force download and cleanup
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(downloadUrl);
             
-            // Clean up the temporary link immediately
-            downloadLink.remove();
-            window.URL.revokeObjectURL(downloadLink.href);
-            
-            showToast("Success! Cleaned image has been downloaded.", "success");
+            alert("Success! Cleaned file downloaded.");
         } else {
-            showToast("Error removing metadata.", "error");
+            alert("Error removing metadata.");
         }
-    });
-
-    // --- Helper for Toast Notifications ---
-    function showToast(message, type) {
-        const toast = document.getElementById('toast');
-        const toastMsg = document.getElementById('toast-message');
-        
-        // Remove old classes
-        toast.className = 'toast';
-        
-        // Add new text and class
-        toastMsg.textContent = message;
-        toast.classList.add(type);
-        toast.classList.add('show');
-        
-        // Hide after 3 seconds
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
-    }
+    };
 });
